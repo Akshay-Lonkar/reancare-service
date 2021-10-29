@@ -12,16 +12,17 @@ import BodyHeight from '../../../models/clinical/biometrics/body.height.model';
 
 export class BodyHeightRepo implements IBodyHeightRepo {
 
-    create = async (BodyHeightDomainModel: BodyHeightDomainModel): Promise<BodyHeightDto> => {
+    create = async (createModel: BodyHeightDomainModel): Promise<BodyHeightDto> => {
         try {
             const entity = {
-                PatientUserId : BodyHeightDomainModel.PatientUserId,
-                BodyHeight    : BodyHeightDomainModel.BodyHeight ?? 0,
-                Unit          : BodyHeightDomainModel.Unit ?? 'cm'
+                PatientUserId    : createModel.PatientUserId,
+                BodyHeight       : createModel.BodyHeight,
+                Unit             : createModel.Unit,
+                RecordDate       : createModel.RecordDate,
+                RecordedByUserId : createModel.RecordedByUserId
             };
             const bodyHeight = await BodyHeight.create(entity);
-            const dto = await BodyHeightMapper.toDto(bodyHeight);
-            return dto;
+            return await BodyHeightMapper.toDto(bodyHeight);
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
@@ -30,9 +31,9 @@ export class BodyHeightRepo implements IBodyHeightRepo {
 
     getById = async (id: string): Promise<BodyHeightDto> => {
         try {
-            const address = await BodyHeight.findByPk(id);
-            const dto = await BodyHeightMapper.toDto(address);
-            return dto;
+            const bodyHeight = await BodyHeight.findByPk(id);
+            return await BodyHeightMapper.toDto(bodyHeight);
+
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
@@ -44,12 +45,20 @@ export class BodyHeightRepo implements IBodyHeightRepo {
             const search = { where: {} };
 
             if (filters.PatientUserId != null) {
-                search.where['PatientUserId'] = { [Op.like]: '%' + filters.PatientUserId + '%' };
+                search.where['PatientUserId'] = filters.PatientUserId;
             }
             if (filters.MinValue != null && filters.MaxValue != null) {
                 search.where['BodyHeight'] = {
                     [Op.gte] : filters.MinValue,
                     [Op.lte] : filters.MaxValue,
+                };
+            } else if (filters.MinValue === null && filters.MaxValue !== null) {
+                search.where['BodyHeight'] = {
+                    [Op.lte] : filters.MaxValue,
+                };
+            } else if (filters.MinValue !== null && filters.MaxValue === null) {
+                search.where['BodyHeight'] = {
+                    [Op.gte] : filters.MinValue,
                 };
             }
             if (filters.CreatedDateFrom != null && filters.CreatedDateTo != null) {
@@ -65,6 +74,9 @@ export class BodyHeightRepo implements IBodyHeightRepo {
                 search.where['CreatedAt'] = {
                     [Op.gte] : filters.CreatedDateFrom,
                 };
+            }
+            if (filters.RecordedByUserId !== null) {
+                search.where['RecordedByUserId'] = filters.RecordedByUserId;
             }
             let orderByColum = 'BodyHeight';
             if (filters.OrderBy) {
@@ -114,20 +126,29 @@ export class BodyHeightRepo implements IBodyHeightRepo {
         }
     };
 
-    update = async (id: string, BodyHeightDomainModel: BodyHeightDomainModel): Promise<BodyHeightDto> => {
+    update = async (id: string, updateModel: BodyHeightDomainModel): Promise<BodyHeightDto> => {
         try {
             const bodyHeight = await BodyHeight.findByPk(id);
 
-            if (BodyHeightDomainModel.BodyHeight != null) {
-                bodyHeight.BodyHeight = BodyHeightDomainModel.BodyHeight;
+            if (updateModel.PatientUserId != null) {
+                bodyHeight.PatientUserId = updateModel.PatientUserId;
             }
-            if (BodyHeightDomainModel.Unit != null) {
-                bodyHeight.Unit = BodyHeightDomainModel.Unit;
+            if (updateModel.BodyHeight != null) {
+                bodyHeight.BodyHeight = updateModel.BodyHeight;
+            }
+            if (updateModel.Unit != null) {
+                bodyHeight.Unit = updateModel.Unit;
+            }
+            if (updateModel.RecordDate != null) {
+                bodyHeight.RecordDate = updateModel.RecordDate;
+            }
+            if (updateModel.RecordedByUserId != null) {
+                bodyHeight.RecordedByUserId = updateModel.RecordedByUserId;
             }
             await bodyHeight.save();
 
-            const dto = await BodyHeightMapper.toDto(bodyHeight);
-            return dto;
+            return await BodyHeightMapper.toDto(bodyHeight);
+
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
@@ -136,8 +157,9 @@ export class BodyHeightRepo implements IBodyHeightRepo {
 
     delete = async (id: string): Promise<boolean> => {
         try {
-            await BodyHeight.destroy({ where: { id: id } });
-            return true;
+
+            const result = await BodyHeight.destroy({ where: { id: id } });
+            return result === 1;
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);

@@ -1,14 +1,17 @@
 import express from 'express';
-import { body, param, query, validationResult } from 'express-validator';
-import { Helper } from '../../../../common/helper';
 import { BodyHeightDomainModel } from '../../../../domain.types/clinical/biometrics/body.height/body.height.domain.model';
 import { BodyHeightSearchFilters } from '../../../../domain.types/clinical/biometrics/body.height/body.height.search.types';
+import { BaseValidator, Where } from '../../base.validator';
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-export class BodyHeightValidator {
+export class BodyHeightValidator extends BaseValidator{
 
-    static getDomainModel = (request: express.Request): BodyHeightDomainModel => {
+    constructor() {
+        super();
+    }
+
+    getDomainModel = (request: express.Request): BodyHeightDomainModel => {
 
         const bodyHeightModel: BodyHeightDomainModel = {
             PatientUserId    : request.body.PatientUserId ?? null,
@@ -21,145 +24,68 @@ export class BodyHeightValidator {
         return bodyHeightModel;
     };
 
-    static create = async (request: express.Request): Promise<BodyHeightDomainModel> => {
-        await BodyHeightValidator.validateBody(request);
-        return BodyHeightValidator.getDomainModel(request);
+    create = async (request: express.Request): Promise<BodyHeightDomainModel> => {
+        await this.validateCreateBody(request);
+        return this.getDomainModel(request);
     };
 
-    static getById = async (request: express.Request): Promise<string> => {
-        return await BodyHeightValidator.getParamId(request);
+    search = async (request: express.Request): Promise<BodyHeightSearchFilters> => {
+
+        await this.validateUuid(request, 'patientUserId', Where.Query, false, false);
+        await this.validateDecimal(request, 'minValue', Where.Query, false, false);
+        await this.validateDecimal(request, 'maxValue', Where.Query, false, false);
+        await this.validateDate(request, 'createdDateFrom', Where.Query, false, false);
+        await this.validateDate(request, 'createdDateTo', Where.Query, false, false);
+        await this.validateUuid(request, 'recordedByUserId', Where.Query, false, false);
+
+        await this.validateBaseSearchFilters(request);
+        
+        this.validateRequest(request);
+
+        return this.getFilter(request);
     };
 
-    static delete = async (request: express.Request): Promise<string> => {
-        return await BodyHeightValidator.getParamId(request);
-    };
-
-    static search = async (request: express.Request): Promise<BodyHeightSearchFilters> => {
-
-        await query('MaxValue').optional()
-            .trim()
-            .escape()
-            .isDecimal()
-            .run(request);
-
-        await query('MinValue').optional()
-            .trim()
-            .escape()
-            .isDecimal()
-            .run(request);
-
-        await query('createdDateFrom').optional()
-            .trim()
-            .escape()
-            .toDate()
-            .run(request);
-
-        await query('PatientUserId').optional()
-            .trim()
-            .escape()
-            .isUUID()
-            .run(request);
-
-        await query('createdDateTo').optional()
-            .trim()
-            .escape()
-            .toDate()
-            .run(request);
-
-        await query('orderBy').optional()
-            .trim()
-            .escape()
-            .run(request);
-
-        await query('order').optional()
-            .trim()
-            .escape()
-            .run(request);
-
-        await query('pageIndex').optional()
-            .trim()
-            .escape()
-            .isInt()
-            .run(request);
-
-        await query('itemsPerPage').optional()
-            .trim()
-            .escape()
-            .isInt()
-            .run(request);
-
-        const result = validationResult(request);
-        if (!result.isEmpty()) {
-            Helper.handleValidationError(result);
-        }
-
-        return BodyHeightValidator.getFilter(request);
-    };
-
-    static update = async (request: express.Request): Promise<BodyHeightDomainModel> => {
-
-        const id = await BodyHeightValidator.getParamId(request);
-        await BodyHeightValidator.validateBody(request);
-
-        const domainModel = BodyHeightValidator.getDomainModel(request);
-        domainModel.id = id;
-
+    update = async (request: express.Request): Promise<BodyHeightDomainModel> => {
+        await this.validateUpdateBody(request);
+        const domainModel = this.getDomainModel(request);
+        domainModel.id = await this.getParamUuid(request, 'id');
         return domainModel;
     };
 
-    private static async validateBody(request) {
+    private  async validateCreateBody(request) {
 
-        await body('PatientUserId').exists()
-            .trim()
-            .escape()
-            .isUUID()
-            .run(request);
+        await this.validateUuid(request, 'PatientUserId', Where.Body, true, false);
+        await this.validateDecimal(request, 'BodyHeight', Where.Body, true, false);
+        await this.validateString(request, 'Unit', Where.Body, false, true);
+        await this.validateDate(request, 'RecordDate', Where.Body, true, false);
+        await this.validateUuid(request, 'RecordedByUserId', Where.Body, false, false);
 
-        await body('BodyHeight').exists()
-            .trim()
-            .escape()
-            .run(request);
+        this.validateRequest(request);
+    }
+    
+    private  async validateUpdateBody(request) {
 
-        await body('Unit').exists()
-            .trim()
-            .run(request);
+        await this.validateUuid(request, 'PatientUserId', Where.Body, false, false);
+        await this.validateDecimal(request, 'BodyHeight', Where.Body, false, false);
+        await this.validateString(request, 'Unit', Where.Body, false, false);
+        await this.validateDate(request, 'RecordDate', Where.Body, false, false);
+        await this.validateUuid(request, 'RecordedByUserId', Where.Body, false, true);
 
-        const result = validationResult(request);
-        if (!result.isEmpty()) {
-            Helper.handleValidationError(result);
-        }
+        this.validateRequest(request);
     }
 
-    private static getFilter(request): BodyHeightSearchFilters {
-        const pageIndex = request.query.pageIndex !== 'undefined' ? parseInt(request.query.pageIndex as string, 10) : 0;
-
-        const itemsPerPage =
-            request.query.itemsPerPage !== 'undefined' ? parseInt(request.query.itemsPerPage as string, 10) : 25;
-
-        const filters: BodyHeightSearchFilters = {
-            CreatedDateFrom : request.query.createdDateFrom ?? null,
-            CreatedDateTo   : request.query.createdDateTo ?? null,
-            OrderBy         : request.query.orderBy ?? 'CreatedAt',
-            Order           : request.query.order ?? 'descending',
-            PageIndex       : pageIndex,
-            ItemsPerPage    : itemsPerPage,
+    private getFilter(request): BodyHeightSearchFilters {
+        
+        var filters: BodyHeightSearchFilters = {
+            PatientUserId    : request.query.patientUserId ?? null,
+            MinValue         : request.query.minValue ?? null,
+            MaxValue         : request.query.maxValue ?? null,
+            CreatedDateFrom  : request.query.createdDateFrom ?? null,
+            CreatedDateTo    : request.query.createdDateTo ?? null,
+            RecordedByUserId : request.query.recordedByUserId ?? null,
         };
-        return filters;
-    }
 
-    private static async getParamId(request) {
-
-        await param('id').trim()
-            .escape()
-            .isUUID()
-            .run(request);
-
-        const result = validationResult(request);
-
-        if (!result.isEmpty()) {
-            Helper.handleValidationError(result);
-        }
-        return request.params.id;
+        return this.updateBaseSearchFilters(request, filters);
     }
 
 }

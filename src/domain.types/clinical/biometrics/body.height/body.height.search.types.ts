@@ -1,24 +1,16 @@
+import { uuid } from "../../../../domain.types/miscellaneous/system.types";
+import { BaseSearchResults, BaseSearchFilters } from "../../../../domain.types/miscellaneous/base.search.types";
 import { BodyHeightDto } from "./body.height.dto";
 
-export interface BodyHeightSearchFilters {
-    PatientUserId?: string;
-    MinValue?: number;
-    MaxValue?: number;
-    CreatedDateFrom?: Date;
-    CreatedDateTo?: Date;
-    RecordedByUserId?: string;
-    OrderBy: string;
-    Order: string;
-    PageIndex: number;
-    ItemsPerPage: number;
+export interface BodyHeightSearchFilters extends BaseSearchFilters{
+    PatientUserId?   : uuid;
+    MinValue?        : number;
+    MaxValue?        : number;
+    CreatedDateFrom? : Date;
+    CreatedDateTo?   : Date;
+    RecordedByUserId?: uuid;
 }
 
-export interface BodyHeightSearchResults {
-    TotalCount: number;
-    RetrievedCount: number;
-    PageIndex: number;
-    ItemsPerPage: number;
-    Order: string;
-    OrderedBy: string;
+export interface BodyHeightSearchResults extends BaseSearchResults {
     Items: BodyHeightDto[];
 }

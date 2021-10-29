@@ -1,36 +1,25 @@
 import express from 'express';
-import { Authorizer } from '../../../../auth/authorizer';
+import { uuid } from '../../../../domain.types/miscellaneous/system.types';
 import { ApiError } from '../../../../common/api.error';
 import { ResponseHandler } from '../../../../common/response.handler';
 import { BodyHeightService } from '../../../../services/clinical/biometrics/body.height.service';
-import { OrganizationService } from '../../../../services/organization.service';
-import { PersonService } from '../../../../services/person.service';
-import { RoleService } from '../../../../services/role.service';
 import { Loader } from '../../../../startup/loader';
 import { BodyHeightValidator } from '../../../validators/clinical/biometrics/body.height.validator';
+import { BaseController } from '../../base.controller';
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-export class BodyHeightController {
+export class BodyHeightController extends BaseController {
 
     //#region member variables and constructors
 
     _service: BodyHeightService = null;
 
-    _roleService: RoleService = null;
-
-    _personService: PersonService = null;
-
-    _organizationService: OrganizationService = null;
-
-    _authorizer: Authorizer = null;
+    _validator: BodyHeightValidator = new BodyHeightValidator();
 
     constructor() {
+        super();
         this._service = Loader.container.resolve(BodyHeightService);
-        this._roleService = Loader.container.resolve(RoleService);
-        this._personService = Loader.container.resolve(PersonService);
-        this._organizationService = Loader.container.resolve(OrganizationService);
-        this._authorizer = Loader.authorizer;
     }
 
     //#endregion
@@ -39,17 +28,16 @@ export class BodyHeightController {
 
     create = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = "Biometrics.BodyHeight.Create";
-            await this._authorizer.authorize(request, response);
             
-            const domainModel = await BodyHeightValidator.create(request);
+            this.setContext('Biometrics.BodyHeight.Create', request, response);
 
-            const bodyHeight = await this._service.create(domainModel);
+            const model = await this._validator.create(request);
+            const bodyHeight = await this._service.create(model);
             if (bodyHeight == null) {
-                throw new ApiError(400, 'Cannot create body height!');
+                throw new ApiError(400, 'Cannot create record for height!');
             }
 
-            ResponseHandler.success(request, response, 'Body height created successfully!', 201, {
+            ResponseHandler.success(request, response, 'Height record created successfully!', 201, {
                 BodyHeight : bodyHeight
             });
         } catch (error) {
@@ -59,18 +47,16 @@ export class BodyHeightController {
 
     getById = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = "Biometrics.BodyHeight.GetById";
             
-            await this._authorizer.authorize(request, response);
+            this.setContext('Biometrics.BodyHeight.GetById', request, response);
 
-            const id: string = await BodyHeightValidator.getById(request);
-
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
             const bodyHeight = await this._service.getById(id);
             if (bodyHeight == null) {
-                throw new ApiError(404, 'Body height not found.');
+                throw new ApiError(404, 'Height record not found.');
             }
 
-            ResponseHandler.success(request, response, 'Body height retrieved successfully!', 200, {
+            ResponseHandler.success(request, response, 'Height record retrieved successfully!', 200, {
                 BodyHeight : bodyHeight
             });
         } catch (error) {
@@ -80,18 +66,16 @@ export class BodyHeightController {
 
     search = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = "Biometrics.BodyHeight.Search";
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Biometrics.BodyHeight.Search', request, response);
 
-            const filters = await BodyHeightValidator.search(request);
-
+            const filters = await this._validator.search(request);
             const searchResults = await this._service.search(filters);
-
             const count = searchResults.Items.length;
             const message =
                 count === 0
                     ? 'No records found!'
-                    : `Total ${count} body height records retrieved successfully!`;
+                    : `Total ${count} height records retrieved successfully!`;
                     
             ResponseHandler.success(request, response, message, 200, {
                 BodyHeightRecords : searchResults
@@ -104,23 +88,21 @@ export class BodyHeightController {
 
     update = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = "Biometrics.BodyHeight.Update";
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Biometrics.BodyHeight.Update', request, response);
 
-            const domainModel = await BodyHeightValidator.update(request);
-
-            const id: string = await BodyHeightValidator.getById(request);
-            const existingAddress = await this._service.getById(id);
-            if (existingAddress == null) {
+            const domainModel = await this._validator.update(request);
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
+            const existingRecord = await this._service.getById(id);
+            if (existingRecord == null) {
                 throw new ApiError(404, 'Body height not found.');
             }
-
             const updated = await this._service.update(domainModel.id, domainModel);
             if (updated == null) {
-                throw new ApiError(400, 'Unable to update body height record!');
+                throw new ApiError(400, 'Unable to update height record!');
             }
 
-            ResponseHandler.success(request, response, 'Body height record updated successfully!', 200, {
+            ResponseHandler.success(request, response, 'Height record updated successfully!', 200, {
                 BodyHeight : updated
             });
         } catch (error) {
@@ -130,21 +112,21 @@ export class BodyHeightController {
 
     delete = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = "Biometrics.BodyHeight.Delete";
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Nutrition.FoodConsumption.Delete', request, response);
 
-            const id: string = await BodyHeightValidator.getById(request);
-            const existingAddress = await this._service.getById(id);
-            if (existingAddress == null) {
-                throw new ApiError(404, 'Body height not found.');
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
+            const existingRecord = await this._service.getById(id);
+            if (existingRecord == null) {
+                throw new ApiError(404, 'Height not found.');
             }
 
             const deleted = await this._service.delete(id);
             if (!deleted) {
-                throw new ApiError(400, 'Body height cannot be deleted.');
+                throw new ApiError(400, 'height cannot be deleted.');
             }
 
-            ResponseHandler.success(request, response, 'Body height record deleted successfully!', 200, {
+            ResponseHandler.success(request, response, 'Height record deleted successfully!', 200, {
                 Deleted : true,
             });
         } catch (error) {

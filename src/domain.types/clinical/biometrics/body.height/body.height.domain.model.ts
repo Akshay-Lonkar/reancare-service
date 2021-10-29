@@ -1,9 +1,11 @@
+import { uuid } from "../../../../domain.types/miscellaneous/system.types";
+
 export interface BodyHeightDomainModel {
-    id?: string;
-    EhrId?: string;
-    PatientUserId: string;
-    BodyHeight: number;
-    Unit: string;
-    RecordDate?: Date;
-    RecordedByUserId?: string;
+    id?              : uuid;
+    EhrId?           : string;
+    PatientUserId    : uuid;
+    BodyHeight       : number;
+    Unit             : string;
+    RecordDate?      : Date;
+    RecordedByUserId?: uuid;
 }

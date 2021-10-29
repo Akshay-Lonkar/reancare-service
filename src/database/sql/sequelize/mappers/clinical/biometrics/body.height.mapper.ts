@@ -11,11 +11,14 @@ export class BodyHeightMapper {
         }
 
         const dto: BodyHeightDto = {
-            id            : bodyHeight.id,
-            EhrId         : bodyHeight.EhrId,
-            PatientUserId : bodyHeight.PatientUserId,
-            BodyHeight    : bodyHeight.BodyHeight,
-            Unit          : bodyHeight.Unit
+            id               : bodyHeight.id,
+            EhrId            : bodyHeight.EhrId,
+            PatientUserId    : bodyHeight.PatientUserId,
+            BodyHeight       : bodyHeight.BodyHeight,
+            Unit             : bodyHeight.Unit,
+            RecordDate       : bodyHeight.RecordDate,
+            RecordedByUserId : bodyHeight.RecordedByUserId
+
         };
         return dto;
     }
