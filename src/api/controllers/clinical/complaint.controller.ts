@@ -1,75 +1,43 @@
 import express from 'express';
-import { Authorizer } from '../../../auth/authorizer';
+import { uuid } from '../../../domain.types/miscellaneous/system.types';
 import { ApiError } from '../../../common/api.error';
 import { ResponseHandler } from '../../../common/response.handler';
 import { ComplaintService } from '../../../services/clinical/complaint.service';
-import { DoctorService } from '../../../services/doctor.service';
-import { PatientService } from '../../../services/patient/patient.service';
-import { PersonService } from '../../../services/person.service';
-import { RoleService } from '../../../services/role.service';
 import { Loader } from '../../../startup/loader';
 import { ComplaintValidator } from '../../validators/clinical/complaint.validator';
-
-
+import { BaseController } from '../base.controller';
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-export class ComplaintController {
+export class ComplaintController extends BaseController{
 
     //#region member variables and constructors
 
     _service: ComplaintService = null;
-
-    _roleService: RoleService = null;
-
-    _personService: PersonService = null;
-
-    _patientService: PatientService = null;
-
-    _authorizer: Authorizer = null;
-
-    _doctorService: DoctorService = null;
+   
+    _validator: ComplaintValidator = new ComplaintValidator();
 
     constructor() {
+        super();
         this._service = Loader.container.resolve(ComplaintService);
-        this._roleService = Loader.container.resolve(RoleService);
-        this._personService = Loader.container.resolve(PersonService);
-        this._patientService = Loader.container.resolve(PatientService);
-        this._doctorService = Loader.container.resolve(DoctorService);
-        this._authorizer = Loader.authorizer;
-    }
 
+    }
     //#endregion
 
     //#region Action methods
 
     create = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = 'Complaint.Create';
-            await this._authorizer.authorize(request, response);
             
-            const domainModel = await ComplaintValidator.create(request);
+            this.setContext('Complaint.Create', request, response);
 
-            if (domainModel.PatientUserId != null) {
-                const patientUser = await this._patientService.getByUserId(domainModel.PatientUserId);
-                if (patientUser == null) {
-                    throw new ApiError(404, `Patient with an id ${domainModel.PatientUserId} cannot be found.`);
-                }
-            }
-
-            if (domainModel.MedicalPractitionerUserId != null) {
-                var organization = await this._doctorService.getByUserId(domainModel.MedicalPractitionerUserId);
-                if (organization == null) {
-                    throw new ApiError(404, `Medical Practitioner with an id ${domainModel.MedicalPractitionerUserId} cannot be found.`);
-                }
-            }
-
-            const complaint = await this._service.create(domainModel);
+            const model = await this._validator.create(request);
+            const complaint = await this._service.create(model);
             if (complaint == null) {
-                throw new ApiError(400, 'Cannot create complaint!');
+                throw new ApiError(400, 'Cannot create record for complaint!');
             }
 
-            ResponseHandler.success(request, response, 'Complaint created successfully!', 201, {
+            ResponseHandler.success(request, response, 'Complaint record created successfully!', 201, {
                 Complaint : complaint,
             });
         } catch (error) {
@@ -79,18 +47,16 @@ export class ComplaintController {
 
     getById = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = 'Complaint.GetById';
             
-            await this._authorizer.authorize(request, response);
+            this.setContext('Complaint.GetById', request, response);
 
-            const id: string = await ComplaintValidator.getById(request);
-
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
             const complaint = await this._service.getById(id);
             if (complaint == null) {
-                throw new ApiError(404, 'Complaint not found.');
+                throw new ApiError(404, 'Complaint record not found.');
             }
 
-            ResponseHandler.success(request, response, 'Complaint retrieved successfully!', 200, {
+            ResponseHandler.success(request, response, 'Complaint record retrieved successfully!', 200, {
                 Complaint : complaint,
             });
         } catch (error) {
@@ -100,14 +66,12 @@ export class ComplaintController {
 
     search = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = 'Complaint.Search';
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Complaint.Search', request, response);
 
-            const filters = await ComplaintValidator.search(request);
-
+            const filters = await this._validator.search(request);
             const searchResults = await this._service.search(filters);
-
-            const count = searchResults.length;
+            const count = searchResults.Items.length;
             const message =
                 count === 0
                     ? 'No records found!'
@@ -122,15 +86,14 @@ export class ComplaintController {
 
     update = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = 'Complaint.Update';
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Complaint.Update', request, response);
 
-            const domainModel = await ComplaintValidator.update(request);
-
-            const id: string = await ComplaintValidator.getById(request);
-            const existingComplaint = await this._service.getById(id);
-            if (existingComplaint == null) {
-                throw new ApiError(404, 'Complaint not found.');
+            const domainModel = await this._validator.update(request);
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
+            const existingRecord = await this._service.getById(id);
+            if (existingRecord == null) {
+                throw new ApiError(404, 'Complaint record not found.');
             }
 
             const updated = await this._service.update(domainModel.id, domainModel);
@@ -148,18 +111,18 @@ export class ComplaintController {
 
     delete = async (request: express.Request, response: express.Response): Promise<void> => {
         try {
-            request.context = 'Complaint.Delete';
-            await this._authorizer.authorize(request, response);
+            
+            this.setContext('Nutrition.FoodConsumption.Delete', request, response);
 
-            const id: string = await ComplaintValidator.getById(request);
-            const existingComplaint = await this._service.getById(id);
-            if (existingComplaint == null) {
-                throw new ApiError(404, 'Complaint not found.');
+            const id: uuid = await this._validator.getParamUuid(request, 'id');
+            const existingRecord = await this._service.getById(id);
+            if (existingRecord == null) {
+                throw new ApiError(404, 'Complaint record not found.');
             }
 
             const deleted = await this._service.delete(id);
             if (!deleted) {
-                throw new ApiError(400, 'Complaint cannot be deleted.');
+                throw new ApiError(400, 'Complaint record cannot be deleted.');
             }
 
             ResponseHandler.success(request, response, 'Complaint record deleted successfully!', 200, {

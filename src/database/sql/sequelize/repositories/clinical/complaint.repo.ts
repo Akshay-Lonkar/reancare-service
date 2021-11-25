@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { ComplaintSearchResults, ComplaintSearchFilters } from '../../../../../domain.types/clinical/complaint/complaint.search.types';
 import { ApiError } from '../../../../../common/api.error';
 import { Logger } from '../../../../../common/logger';
 import { ComplaintDomainModel } from '../../../../../domain.types/clinical/complaint/complaint.domain.model';
@@ -11,20 +12,19 @@ import Complaint from '../../models/clinical/complaint.model';
 
 export class ComplaintRepo implements IComplaintRepo {
 
-    create = async (complaintDomainModel: ComplaintDomainModel): Promise<ComplaintDto> => {
+    create = async (createModel: ComplaintDomainModel): Promise<ComplaintDto> => {
         try {
             const entity = {
-                PatientUserId             : complaintDomainModel.PatientUserId ?? null,
-                MedicalPractitionerUserId : complaintDomainModel.MedicalPractitionerUserId ?? null,
-                VisitId                   : complaintDomainModel.VisitId ? complaintDomainModel.VisitId : undefined,
-                EhrId                     : complaintDomainModel.EhrId ?? null,
-                Complaint                 : complaintDomainModel.Complaint ?? null,
-                Severity                  : complaintDomainModel.Severity ?? null,
-                RecordDate                : complaintDomainModel.RecordDate ?? null
+                PatientUserId             : createModel.PatientUserId ?? null,
+                MedicalPractitionerUserId : createModel.MedicalPractitionerUserId ?? null,
+                VisitId                   : createModel.VisitId ?? null,
+                Complaint                 : createModel.Complaint ?? null,
+                Severity                  : createModel.Severity,
+                RecordDate                : createModel.RecordDate ?? null
             };
             const complaint = await Complaint.create(entity);
-            const dto = await ComplaintMapper.toDto(complaint);
-            return dto;
+            return await ComplaintMapper.toDto(complaint);
+
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
@@ -34,31 +34,91 @@ export class ComplaintRepo implements IComplaintRepo {
     getById = async (id: string): Promise<ComplaintDto> => {
         try {
             const complaint = await Complaint.findByPk(id);
-            const dto = await ComplaintMapper.toDto(complaint);
-            return dto;
+            return await ComplaintMapper.toDto(complaint);
+
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
         }
     };
 
-    search = async (id: string): Promise<ComplaintDto[]> => {
+    search = async (filters: ComplaintSearchFilters): Promise<ComplaintSearchResults> => {
         try {
+            
             const search = { where: {} };
 
-            if (id != null) {
-                search.where['PatientUserId'] = { [Op.eq]: id };
+            if (filters.PatientUserId != null) {
+                search.where['PatientUserId'] = filters.PatientUserId;
             }
+            if (filters.MedicalPractitionerUserId != null) {
+                search.where['MedicalPractitionerUserId'] = filters.MedicalPractitionerUserId;
+            }
+            if (filters.VisitId != null) {
+                search.where['VisitId'] = filters.VisitId;
+            }
+            if (filters.Complaint != null) {
+                search.where['Complaint'] = filters.Complaint;
+            }
+            if (filters.Severity != null) {
+                search.where['Severity'] = filters.Severity;
+            }
+            if (filters.DateFrom != null && filters.DateTo != null) {
+                search.where['CreatedAt'] = {
+                    [Op.gte] : filters.DateFrom,
+                    [Op.lte] : filters.DateTo,
+                };
+            } else if (filters.DateFrom === null && filters.DateTo !== null) {
+                search.where['CreatedAt'] = {
+                    [Op.lte] : filters.DateTo,
+                };
+            } else if (filters.DateFrom !== null && filters.DateTo === null) {
+                search.where['CreatedAt'] = {
+                    [Op.gte] : filters.DateFrom,
+                };
+            }
+            let orderByColum = 'CreatedAt';
+            if (filters.OrderBy) {
+                orderByColum = filters.OrderBy;
+            }
+            let order = 'ASC';
+            if (filters.Order === 'descending') {
+                order = 'DESC';
+            }
+            search['order'] = [[orderByColum, order]];
 
-            const foundResults = await Complaint.findAll(search);
+            let limit = 25;
+            if (filters.ItemsPerPage) {
+                limit = filters.ItemsPerPage;
+            }
+            let offset = 0;
+            let pageIndex = 0;
+            if (filters.PageIndex) {
+                pageIndex = filters.PageIndex < 0 ? 0 : filters.PageIndex;
+                offset = pageIndex * limit;
+            }
+            search['limit'] = limit;
+            search['offset'] = offset;
+
+            const foundResults = await Complaint.findAndCountAll(search);
 
             const dtos: ComplaintDto[] = [];
-            for (const complaint of foundResults) {
+            for (const complaint of foundResults.rows) {
                 const dto = await ComplaintMapper.toDto(complaint);
                 dtos.push(dto);
             }
 
-            return dtos;
+            const searchResults: ComplaintSearchResults = {
+                TotalCount     : foundResults.count,
+                RetrievedCount : dtos.length,
+                PageIndex      : pageIndex,
+                ItemsPerPage   : limit,
+                Order          : order === 'DESC' ? 'descending' : 'ascending',
+                OrderedBy      : orderByColum,
+                Items          : dtos,
+            };
+
+            return searchResults;
+            
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
@@ -102,8 +162,8 @@ export class ComplaintRepo implements IComplaintRepo {
 
     delete = async (id: string): Promise<boolean> => {
         try {
-            await Complaint.destroy({ where: { id: id } });
-            return true;
+            const result = await Complaint.destroy({ where: { id: id } });
+            return result === 1;
         } catch (error) {
             Logger.instance().log(error.message);
             throw new ApiError(500, error.message);
