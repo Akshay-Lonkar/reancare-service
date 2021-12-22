@@ -46,7 +46,6 @@ export class MedicationConsumptionController {
             request.context = 'MedicationConsumption.MarkListAsTaken';
             await this._authorizer.authorize(request, response);
             
-
             const consumptionIds = await MedicationConsumptionValidator.checkConsumptionIds(request);
             if (consumptionIds.length === 0) {
                 throw new ApiError(422, `Medication consumption ids list is either empty or missing.`);
@@ -69,7 +68,6 @@ export class MedicationConsumptionController {
             request.context = 'MedicationConsumption.MarkListAsMissed';
             await this._authorizer.authorize(request, response);
             
-
             const consumptionIds = await MedicationConsumptionValidator.checkConsumptionIds(request);
             if (consumptionIds.length === 0) {
                 throw new ApiError(422, `Medication consumption ids list is either empty or missing.`);
@@ -92,7 +90,6 @@ export class MedicationConsumptionController {
             request.context = 'MedicationConsumption.MarkAsTaken';
             await this._authorizer.authorize(request, response);
             
-
             const consumptionId = await MedicationConsumptionValidator.getParam(request, 'id');
             const dto = await this._service.markAsTaken(consumptionId);
             if (dto === null) {
@@ -112,7 +109,6 @@ export class MedicationConsumptionController {
             request.context = 'MedicationConsumption.MarkAsMissed';
             await this._authorizer.authorize(request, response);
             
-
             const consumptionId = await MedicationConsumptionValidator.getParam(request, 'id');
             const dto = await this._service.markAsMissed(consumptionId);
             if (dto === null) {
@@ -132,7 +128,6 @@ export class MedicationConsumptionController {
             request.context = 'MedicationConsumption.DeleteFutureMedicationSchedules';
             await this._authorizer.authorize(request, response);
             
-
             const medicationId = await MedicationConsumptionValidator.getParam(request, 'medicationId');
             const deletedCount = await this._service.deleteFutureMedicationSchedules(medicationId);
             
@@ -150,8 +145,7 @@ export class MedicationConsumptionController {
     //     try {
     //         request.context = 'MedicationConsumption.UpdateFutureMedicationSchedulesForTimeZone';
     //         await this._authorizer.authorize(request, response);
-    //         
-
+    //
     //         const medicationId = await MedicationConsumptionValidator.getParam(request, 'medicationId');
     //         const newTimeZone = await MedicationConsumptionValidator.getParam(request, 'newTimeZone');
 

@@ -2,10 +2,11 @@ import { inject, injectable } from "tsyringe";
 import { Helper } from "../../common/helper";
 import { IMedicationConsumptionRepo } from "../../database/repository.interfaces/clinical/medication/medication.consumption.repo.interface";
 import { IUserTaskRepo } from "../../database/repository.interfaces/user/user.task.repo.interface";
-import { UserActionType } from "../../domain.types/user/user.task/user.task..types";
+import { UserActionType } from "../../domain.types/user/user.task/user.task.types";
 import { UserTaskDomainModel } from '../../domain.types/user/user.task/user.task.domain.model';
 import { TaskSummaryDto, UserTaskDto } from '../../domain.types/user/user.task/user.task.dto';
 import { UserTaskSearchFilters, UserTaskSearchResults } from '../../domain.types/user/user.task/user.task.search.types';
+import { Loader } from '../../startup/loader';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -103,6 +104,10 @@ export class UserTaskService {
         if (dto.ActionType === UserActionType.Medication &&
             dto.ActionId !== null) {
             actionDto = await this._medicationConsumptionRepo.getById(dto.ActionId);
+            dto.ActionDto = actionDto;
+        } else if (dto.ActionType === UserActionType.Careplan &&
+            dto.ActionId !== null) {
+            actionDto = await Loader.carePlanService.fetchTasksDetails(dto.ActionId);
             dto.ActionDto = actionDto;
         }
         

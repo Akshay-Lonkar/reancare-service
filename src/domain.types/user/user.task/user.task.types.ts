@@ -11,6 +11,8 @@ export enum UserTaskCategory {
     StressManagement   = 'Stress management',
     Challenge          = 'Challenge',
     Goal               = 'Goal',
+    Professional       = 'Professional',
+    Message            = 'Message',
     Consultation       = 'Consultation',          //Call, message or tele-visit
     PersonalReflection = 'Personal reflection',
     Custom             = 'Custom',
@@ -28,6 +30,8 @@ export const UserTaskCategoryList: UserTaskCategory [] = [
     UserTaskCategory.StressManagement,
     UserTaskCategory.Challenge,
     UserTaskCategory.Goal,
+    UserTaskCategory.Professional,
+    UserTaskCategory.Message,
     UserTaskCategory.Consultation,
     UserTaskCategory.PersonalReflection,
     UserTaskCategory.Custom,
@@ -36,9 +40,11 @@ export const UserTaskCategoryList: UserTaskCategory [] = [
 export enum UserActionType {
     Medication  = 'Medication',
     Appointment = 'Appointment',
+    Careplan    = 'Careplan'
 }
 
 export const UserActionTypeList: UserActionType [] = [
     UserActionType.Medication,
     UserActionType.Appointment,
+    UserActionType.Careplan,
 ];

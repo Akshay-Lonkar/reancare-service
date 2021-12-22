@@ -12,6 +12,6 @@ export interface ICarePlanService {
     registerPatientToCarePlan
     (patientDomainModel: PatientDomainModel, enrollmentDomainModel: EnrollmentDomainModel): Promise<any>;
     fetchTasks(enrollmentDto: EnrollmentDto): Promise<CareplanArtifactDto[]>;
-    fetchTasksForDay(id: string, startDay: Date, endDay: Date): Promise<any>;
+    fetchTasksDetails(id: string): Promise<any>;
     delete(id: string): Promise<any>;
 }

@@ -1,5 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { IPersonRepo } from "../../../database/repository.interfaces/person.repo.interface";
+import { IUserTaskRepo } from "../../../database/repository.interfaces/user/user.task.repo.interface";
 import { ICarePlanService } from "../interfaces/careplan.service.interface";
 import { AhaCarePlanService } from "../providers/aha/aha.careplan.service";
 import { PatientDomainModel } from "../../../domain.types/patient/patient/patient.domain.model";
@@ -15,9 +16,10 @@ export class CarePlanService {
     _services: ICarePlanService[] = [];
 
     constructor(
-        @inject('IPersonRepo') private personRepo: IPersonRepo
+        @inject('IPersonRepo') private personRepo: IPersonRepo,
+        @inject('IUserTaskRepo') private userTaskRepo: IUserTaskRepo
     ) {
-        this._services.push(new AhaCarePlanService(personRepo));
+        this._services.push(new AhaCarePlanService(personRepo, userTaskRepo));
         //add any other care plan service ...
         //
     }
@@ -42,8 +44,8 @@ export class CarePlanService {
         return await this._services[0].fetchTasks(enrollmentDto);
     }
 
-    fetchTasksForDay = async (id: string, startDate: Date, endDate: Date): Promise<any> => {
-        return await this._services[0].fetchTasksForDay(id, startDate, endDate);
+    fetchTasksDetails = async (id: string): Promise<any> => {
+        return await this._services[0].fetchTasksDetails(id);
     }
 
     delete = async (id: string): Promise<any> => {

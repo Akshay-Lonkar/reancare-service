@@ -7,12 +7,16 @@ import Participant from "../../../../database/sql/sequelize/models/careplan/part
 import { ParticipantMapper } from "../../../../database/sql/sequelize/mappers/participant.mapper";
 import { ApiError } from "../../../../common/api.error";
 import { IPersonRepo } from "../../../../database/repository.interfaces/person.repo.interface";
+import { IUserTaskRepo } from "../../../../database/repository.interfaces/user/user.task.repo.interface";
 import { inject } from "tsyringe";
 import { EnrollmentDomainModel } from "../../domain.types/enrollment/enrollment.domain.model";
 import { Helper } from "../../../../common/helper";
 import { EnrollmentDto } from "../../domain.types/enrollment/enrollment.dto";
 import CareplanArtifact from "../../../../database/sql/sequelize/models/careplan/careplan.artifact.model";
 import { CareplanArtifactMapper } from "../../../../database/sql/sequelize/mappers/careplan/artifact.mapper";
+import { UserActionType, UserTaskCategory } from "../../../../domain.types/user/user.task/user.task.types";
+import { TimeHelper } from "../../../../common/time.helper";
+import { DateStringFormat, DurationType } from "../../../../domain.types/miscellaneous/time.types";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -20,6 +24,7 @@ export class AhaCarePlanService implements ICarePlanService {
 
     constructor(
         @inject('IPersonRepo') private _personRepo: IPersonRepo,
+        @inject('IUserTaskRepo') private _userTaskRepo: IUserTaskRepo,
     ) {}
 
     public init = async (): Promise<boolean> => {
@@ -250,10 +255,21 @@ export class AhaCarePlanService implements ICarePlanService {
             const tasks = await CareplanArtifact.bulkCreate(activityEntities);
 
             var taskDtos = [];
-            tasks.forEach(async (task) => {
+            var tasksGroupedByDate = {};
+            for (const task of tasks) {
                 var dto = await CareplanArtifactMapper.toDto(task);
+
                 taskDtos.push(dto);
-            });
+                var scheduledDate = TimeHelper.timestamp(dto.ScheduledAt);
+                if (!tasksGroupedByDate[scheduledDate]) {
+                    tasksGroupedByDate[scheduledDate] = [];
+                }
+
+                tasksGroupedByDate[scheduledDate].push(dto);
+            }
+
+            Logger.instance().log(`calling task creation logic`);
+            await this.createScheduledUserTasks(tasksGroupedByDate);
 
             Logger.instance().log(`Imported all AHA tasks for enrollment id: ${enrollmentDto.EnrollmentId}`);
 
@@ -265,8 +281,45 @@ export class AhaCarePlanService implements ICarePlanService {
         }
     }
 
-    fetchTasksForDay(id: string, startDate: Date, endDate: Date): Promise<any> {
-        throw new Error("Method not implemented.");
+    public fetchTasksDetails = async (id: string): Promise<any> => {
+        Logger.instance().log(`Fetching task details for action id: ${id}`);
+
+        const careplanArtifact = await CareplanArtifact.findOne({ where: { id: id } });
+
+        const AHA_API_BASE_URL = process.env.AHA_API_BASE_URL;
+
+        var scheduledDate = TimeHelper.getDateString(careplanArtifact.ScheduledAt, DateStringFormat.YYYY_MM_DD);
+        var queryParam = `scheduledAt=${scheduledDate}&sequence=${careplanArtifact.Sequence}`;
+
+        var url = `${AHA_API_BASE_URL}/enrollments/${careplanArtifact.EnrollmentId}/activities/${careplanArtifact.ProviderActionId}?${queryParam}`;
+    
+        Logger.instance().log(`URL: ${JSON.stringify(url)}`);
+
+        var response = await needle("get", url, this.getHeaderOptions());
+
+        if (response.statusCode !== 200) {
+            Logger.instance().log(`Body: ${JSON.stringify(response.body.error)}`);
+            Logger.instance().error('Unable to fetch details for given artifact id!', response.statusCode, null);
+
+            // throw new ApiError(500, "Careplan service error: " + response.body.error.message);
+            return {};
+        }
+
+        Logger.instance().log(`response body for activity details: ${JSON.stringify(response.body.data.activity)}`);
+
+        var activityDetails = response.body.data.activity;
+        var actionDto = {
+            Type        : activityDetails.type ?? "",
+            Name        : activityDetails.name ?? "",
+            Text        : activityDetails.text ?? "",
+            Description : activityDetails.description ?? "",
+            URL         : activityDetails.url ?? "",
+            Category    : activityDetails.category ?? [],
+            Items       : activityDetails.items ?? [],
+
+        };
+
+        return actionDto;
     }
 
     delete(id: string): Promise<any> {
@@ -287,5 +340,40 @@ export class AhaCarePlanService implements ICarePlanService {
 
         return options;
     }
-    
+
+    async createScheduledUserTasks(tasksGroupedByDate) {
+        // creare user.tasks based on activities
+        for (const scheduledDate in tasksGroupedByDate) {
+            var tasks = tasksGroupedByDate[scheduledDate];
+
+            Logger.instance().log(`Creating user tasks for: ${scheduledDate}, total tasks: ${tasks.length}`);
+
+            tasks.sort((a, b) => {
+                return a.Sequence - b.Sequence;
+            });
+
+            tasks.forEach( async (taskDto) => {
+                var dayStart = TimeHelper.addDuration(taskDto.ScheduledAt, 7, DurationType.Hour);       // Start at 7:00 AM
+                var scheduleDelay = (taskDto.Sequence - 1) * 1;
+                var startTime = TimeHelper.addDuration(dayStart, scheduleDelay, DurationType.Second);   // Scheduled at every 1 sec
+                var endTime = TimeHelper.addDuration(taskDto.ScheduledAt, 23, DurationType.Hour);       // End at 11:00 PM
+
+                var userTaskModel = {
+                    UserId             : taskDto.UserId,
+                    DisplayId          : taskDto.CareplanName + '-' + taskDto.ProviderActionId,
+                    Task               : taskDto.Title,
+                    Category           : UserTaskCategory[taskDto.Type] ?? UserTaskCategory.Custom,
+                    Description        : null,
+                    ActionType         : UserActionType.Careplan,
+                    ActionId           : taskDto.id,
+                    ScheduledStartTime : startTime,
+                    ScheduledEndTime   : endTime
+                };
+        
+                var userTaskDto = await this._userTaskRepo.create(userTaskModel);
+                Logger.instance().log(`New user task created for AHA careplan with id: ${userTaskDto.id}`);
+            });
+        }
+    }
+
 }
